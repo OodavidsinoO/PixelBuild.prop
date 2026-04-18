@@ -190,6 +190,7 @@ sys_sensitive_checks() {
     replace_value_resetprop ro.build.display.id "dev-keys" "release-keys"
     replace_value_resetprop vendor.camera.aux.packagelist "lineageos." ""
     replace_value_resetprop ro.build.version.incremental "eng." ""
+    replace_value_resetprop ro.custom.version "PixelOS_" ""
 
     # Realme fingerprint fix
     check_resetprop ro.boot.flash.locked 1
