@@ -103,6 +103,129 @@ replace_value_resetprop() { # Replace a substring in a property's value
   [ "$VALUE" == "$VALUE_NEW" ] || resetprop $(_build_resetprop_args "$1") "$VALUE_NEW"
 }
 
+PRESERVE_EMPTY_MARKER="__PIXELPROPS_EMPTY__"
+PROTECTED_NATIVE_PROPS="ro.hardware.camera
+ro.miui.build.region
+ro.product.brand
+ro.product.manufacturer
+ro.miui.notch"
+
+get_module_config_prop_path() {
+  [ -n "$MODPATH_CONFIG_PROP" ] && {
+    echo "$MODPATH_CONFIG_PROP"
+    return 0
+  }
+
+  echo "$MODPATH/config.prop"
+}
+
+get_module_system_prop_path() {
+  [ -n "$MODPATH_SYSTEM_PROP" ] && {
+    echo "$MODPATH_SYSTEM_PROP"
+    return 0
+  }
+
+  echo "$MODPATH/system.prop"
+}
+
+read_module_config_prop() {
+  config_prop_path="$(get_module_config_prop_path)"
+  [ -f "$config_prop_path" ] || return 0
+  grep_prop "$1" "$(cat "$config_prop_path")"
+}
+
+append_module_config_prop_if_missing() {
+  config_key="$1"
+  config_value="$2"
+  config_prop_path="$(get_module_config_prop_path)"
+
+  [ -f "$config_prop_path" ] || return 1
+  existing_value="$(read_module_config_prop "$config_key")"
+  [ -n "$existing_value" ] && return 0
+
+  echo "$config_key=$config_value" >>"$config_prop_path"
+}
+
+preserved_prop_config_key() {
+  echo "pixelprops.preserve.$1.$2"
+}
+
+read_preserved_prop_value() {
+  preserved_value="$(read_module_config_prop "$(preserved_prop_config_key "$1" "$2")")"
+  [ "$preserved_value" = "$PRESERVE_EMPTY_MARKER" ] && preserved_value=""
+  printf '%s' "$preserved_value"
+}
+
+escape_sed_pattern() {
+  printf '%s' "$1" | sed 's/[][(){}.+*?^$|\\/]/\\&/g'
+}
+
+is_protected_native_prop() {
+  target_prop="$1"
+
+  for protected_prop in $PROTECTED_NATIVE_PROPS; do
+    [ "$protected_prop" = "$target_prop" ] && return 0
+  done
+
+  return 1
+}
+
+capture_protected_prop_snapshots() {
+  config_prop_path="$(get_module_config_prop_path)"
+  [ -f "$config_prop_path" ] || return 0
+
+  for prop in $PROTECTED_NATIVE_PROPS; do
+    native_key="$(preserved_prop_config_key native "$prop")"
+    module_key="$(preserved_prop_config_key module "$prop")"
+    current_value="$(grep_prop "$prop" "$SYSPROP_CONTENT")"
+    [ -n "$current_value" ] || current_value="$(resetprop -v "$prop")"
+    module_value="$(grep_prop "$prop" "$MODPROP_CONTENT")"
+
+    [ -n "$current_value" ] || current_value="$PRESERVE_EMPTY_MARKER"
+    [ -n "$module_value" ] || module_value="$PRESERVE_EMPTY_MARKER"
+
+    append_module_config_prop_if_missing "$native_key" "$current_value"
+    append_module_config_prop_if_missing "$module_key" "$module_value"
+  done
+}
+
+comment_out_protected_system_props() {
+  system_prop_path="$(get_module_system_prop_path)"
+  [ -f "$system_prop_path" ] || return 0
+
+  for prop in $PROTECTED_NATIVE_PROPS; do
+    prop_escaped="$(escape_sed_pattern "$prop")"
+    sed -i "s|^${prop_escaped}=|# ${prop}=|" "$system_prop_path"
+  done
+}
+
+get_module_prop_value() {
+  prop_name="$1"
+  prop_value="$(grep_prop "$prop_name" "$MODPROP_CONTENT")"
+
+  if [ -z "$prop_value" ]; then
+    prop_value="$(read_preserved_prop_value module "$prop_name")"
+  fi
+
+  printf '%s' "$prop_value"
+}
+
+restore_protected_native_props() {
+  for prop in $PROTECTED_NATIVE_PROPS; do
+    saved_value_raw="$(read_module_config_prop "$(preserved_prop_config_key native "$prop")")"
+    [ -z "$saved_value_raw" ] && continue
+
+    current_value="$(resetprop -v "$prop")"
+
+    if [ "$saved_value_raw" = "$PRESERVE_EMPTY_MARKER" ]; then
+      [ -n "$current_value" ] && resetprop $(_build_resetprop_args "$prop") ""
+      continue
+    fi
+
+    [ "$current_value" = "$saved_value_raw" ] || resetprop $(_build_resetprop_args "$prop") "$saved_value_raw"
+  done
+}
+
 # This function aims to delete or obfuscate specific strings within Android system properties,
 # by replacing them with random hexadecimal values which should match with the original string length.
 hexpatch_deleteprop() {

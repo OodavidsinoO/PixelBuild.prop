@@ -11,6 +11,8 @@ fi
 # Using util_functions.sh
 [ -f "$MODPATH/util_functions.sh" ] && . "$MODPATH/util_functions.sh" || abort "! util_functions.sh not found!"
 
+restore_protected_native_props
+
 # Check if sensitive_props module exists
 if [ -d "/data/adb/modules/sensitive_props" ]; then
   abort "Sensitive Props module is already present, Skipping !" false

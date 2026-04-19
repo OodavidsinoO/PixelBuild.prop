@@ -61,7 +61,7 @@ PlayIntegrityFix() {
 
     # Build properties
     MODEL=$(grep_prop "ro.product.model" "$MODPROP_CONTENT")
-    MANUFACTURER=$(grep_prop "ro.product.manufacturer" "$MODPROP_CONTENT")
+    MANUFACTURER=$(get_module_prop_value "ro.product.manufacturer")
     PRODUCT=$(grep_prop "ro.product.product.name" "$MODPROP_CONTENT")
     FINGERPRINT=$(grep_prop "ro.product.build.fingerprint" "$MODPROP_CONTENT")
     SECURITY_PATCH=$(grep_prop "ro.vendor.build.security_patch" "$MODPROP_CONTENT")

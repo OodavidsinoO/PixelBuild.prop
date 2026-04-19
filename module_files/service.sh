@@ -33,6 +33,9 @@ SYSPROP_FILES=$(find_prop_files "/" 3)
 MODPROP_CONTENT=$(echo "$MODPROP_FILES" | xargs cat)
 SYSPROP_CONTENT=$(echo "$SYSPROP_FILES" | xargs cat)
 
+capture_protected_prop_snapshots
+comment_out_protected_system_props
+
 # Property management functions
 manage_prop() {
   local action=$1 prop_name=$2 mod_prop_val=$3 mod_prop_key=$4
@@ -313,10 +316,10 @@ sys_sensitive_pihooks_checks() {
     ui_print "- Running Sensitive PIHOOKS checks (internal spoofing)…"
 
     # Build properties
-    BRAND=$(grep_prop "ro.product.brand" "$MODPROP_CONTENT")
+    BRAND=$(get_module_prop_value "ro.product.brand")
     MODEL=$(grep_prop "ro.product.model" "$MODPROP_CONTENT")
     DEVICE=$(grep_prop "ro.product.device" "$MODPROP_CONTENT")
-    MANUFACTURER=$(grep_prop "ro.product.manufacturer" "$MODPROP_CONTENT")
+    MANUFACTURER=$(get_module_prop_value "ro.product.manufacturer")
     PRODUCT=$(grep_prop "ro.product.product.name" "$MODPROP_CONTENT")
     FINGERPRINT=$(grep_prop "ro.product.build.fingerprint" "$MODPROP_CONTENT")
     SECURITY_PATCH=$(grep_prop "ro.vendor.build.security_patch" "$MODPROP_CONTENT")
@@ -412,4 +415,5 @@ sys_sensitive_pihooks_checks() {
 init_config
 mod_sensitive_checks
 boolval "$SAFE_PROPS" && sys_sensitive_checks
+restore_protected_native_props
 boolval "$SAFE_PIHOOKS" && sys_sensitive_pihooks_checks
